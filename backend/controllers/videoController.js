@@ -1,6 +1,7 @@
 import Video from "../models/Video.js";
 import fs from "fs";
 import path from "path";
+import mime from "mime-types";
 
 export const uploadVideo = async (req, res) => {
   try {
@@ -49,29 +50,43 @@ export const getMyVideos = async (req, res) => {
 
 export const streamVideo = (req, res) => {
   const videoPath = path.join("uploads", req.params.filename);
+
+  if (!fs.existsSync(videoPath)) {
+    return res.status(404).send("Video not found");
+  }
+
   const stat = fs.statSync(videoPath);
   const fileSize = stat.size;
   const range = req.headers.range;
 
-  if (!range) {
-    return res.status(400).send("Requires Range header");
+  const contentType = mime.lookup(videoPath) || "video/mp4";
+
+  // 🔹 CASE 1: Browser sends Range request (most common)
+  if (range) {
+    const CHUNK_SIZE = 10 ** 6; // 1MB
+    const start = Number(range.replace(/\D/g, ""));
+    const end = Math.min(start + CHUNK_SIZE, fileSize - 1);
+
+    const contentLength = end - start + 1;
+
+    const headers = {
+      "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+      "Accept-Ranges": "bytes",
+      "Content-Length": contentLength,
+      "Content-Type": contentType,
+    };
+
+    res.writeHead(206, headers);
+    fs.createReadStream(videoPath, { start, end }).pipe(res);
   }
+  // 🔹 CASE 2: Browser sends normal request (FIRST LOAD)
+  else {
+    const headers = {
+      "Content-Length": fileSize,
+      "Content-Type": contentType,
+    };
 
-  const CHUNK_SIZE = 10 ** 6; // 1MB
-  const start = Number(range.replace(/\D/g, ""));
-  const end = Math.min(start + CHUNK_SIZE, fileSize - 1);
-
-  const contentLength = end - start + 1;
-
-  const headers = {
-    "Content-Range": `bytes ${start}-${end}/${fileSize}`,
-    "Accept-Ranges": "bytes",
-    "Content-Length": contentLength,
-    "Content-Type": "video/mp4",
-  };
-
-  res.writeHead(206, headers);
-
-  const videoStream = fs.createReadStream(videoPath, { start, end });
-  videoStream.pipe(res);
+    res.writeHead(200, headers);
+    fs.createReadStream(videoPath).pipe(res);
+  }
 };

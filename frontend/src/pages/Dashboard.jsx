@@ -7,13 +7,27 @@ import socket from "../services/socket";
 function Dashboard() {
   const { logout, token } = useContext(AuthContext);
   const navigate = useNavigate();
+
   const [videos, setVideos] = useState([]);
-  const payload = JSON.parse(atob(token.split(".")[1]));
-const role = payload.role;
+  const [file, setFile] = useState(null);
+  const [progress, setProgress] = useState(0);
+  const [message, setMessage] = useState("");
+
+  //  decode role from JWT
+  let role = "viewer";
+
+if (token) {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    role = payload.role || "viewer";
+  } catch (err) {
+    console.error("Invalid token", err);
+  }
+}
 
 
+  //  fetch videos +  socket updates
   useEffect(() => {
-    // ✅ fetch videos
     const fetchVideos = async () => {
       try {
         const res = await api.get("/videos");
@@ -25,10 +39,9 @@ const role = payload.role;
 
     fetchVideos();
 
-    // 🔔 real-time video status updates
     socket.on("video-updated", (data) => {
-      setVideos((prevVideos) =>
-        prevVideos.map((video) =>
+      setVideos((prev) =>
+        prev.map((video) =>
           video._id === data.videoId
             ? {
                 ...video,
@@ -40,11 +53,34 @@ const role = payload.role;
       );
     });
 
-    // 🧹 cleanup on unmount
     return () => {
       socket.off("video-updated");
     };
   }, []);
+
+  // 🎥 upload handler
+  const handleUpload = async () => {
+    if (!file) return alert("Please select a video");
+
+    const formData = new FormData();
+    formData.append("video", file);
+
+    try {
+      setMessage("");
+      await api.post("/videos/upload", formData, {
+        onUploadProgress: (e) => {
+          setProgress(Math.round((e.loaded * 100) / e.total));
+        },
+      });
+
+      setMessage("Upload successful ");
+      setProgress(0);
+      setFile(null);
+    } catch (err) {
+      console.error(err);
+      setMessage("Upload failed ");
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -55,14 +91,32 @@ const role = payload.role;
     <div style={{ padding: "20px" }}>
       <h2>Dashboard</h2>
       
-      {role !== "viewer" && (
-      <button onClick={() => navigate("/upload")}>
-        Upload Video
-      </button>
-    )}
-    
+      <p><strong>Role:</strong> {role}</p>
+
       <button onClick={handleLogout}>Logout</button>
 
+      {/* 🔐 UPLOAD SECTION (Editor/Admin only) */}
+      {role !== "viewer" && (
+        <div style={{ marginTop: "20px", marginBottom: "30px" }}>
+          <h3>Upload Video</h3>
+
+          <input
+            type="file"
+            accept="video/*"
+            onChange={(e) => setFile(e.target.files[0])}
+          />
+          <br />
+
+          <button onClick={handleUpload} style={{ marginTop: "10px" }}>
+            Upload
+          </button>
+
+          {progress > 0 && <p>Uploading: {progress}%</p>}
+          {message && <p>{message}</p>}
+        </div>
+      )}
+
+      {/* VIDEO LIST */}
       <h3>My Videos</h3>
 
       {videos.length === 0 ? (
@@ -70,23 +124,22 @@ const role = payload.role;
       ) : (
         <ul>
           {videos.map((video) => (
-  <li key={video._id}>
-    <strong>{video.originalName}</strong> —{" "}
-    {video.status} —{" "}
-    {video.sensitivity || "Analyzing..."}
+            <li key={video._id} style={{ marginBottom: "30px" }}>
+              <strong>{video.originalName}</strong> —{" "}
+              {video.status} —{" "}
+              {video.sensitivity || "Analyzing..."}
 
-    {video.status === "completed" && (
-      <div>
-        <video width="400" controls>
-          <source
-            src={`http://localhost:5000/videos/stream/${video.filename}`}
-            type="video/mp4"
-          />
-        </video>
-      </div>
-    )}
-  </li>
-))}
+              {video.status === "completed" && (
+                <div style={{ marginTop: "10px" }}>
+                  <video width="400" controls preload="metadata">
+                    <source
+                      src={`http://localhost:5000/videos/stream/${video.filename}`}
+                    />
+                  </video>
+                </div>
+              )}
+            </li>
+          ))}
         </ul>
       )}
     </div>

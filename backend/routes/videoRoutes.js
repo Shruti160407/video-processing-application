@@ -9,7 +9,7 @@ const router = express.Router();
 
 router.get("/", protect, getMyVideos);
 
-router.get("/stream/:filename", protect, streamVideo);
+router.get("/stream/:filename", streamVideo);
 
 router.post(
   "/upload",

@@ -1,14 +1,13 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
-import Upload from "./pages/Upload";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<Login />} />
+      <Route path="/" element={<Navigate to="/login" />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
@@ -21,14 +20,7 @@ function App() {
         }
       />
 
-      <Route
-        path="/upload"
-        element={
-          <ProtectedRoute>
-            <Upload />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="*" element={<Navigate to="/login" />} />
     </Routes>
   );
 }

@@ -17,6 +17,7 @@ export const register = async (req, res) => {
       name,
       email,
       password: hashedPassword,
+      role: "editor",
     });
 
     res.status(201).json({ message: "User registered", user });
@@ -38,10 +39,14 @@ export const login = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
 
     const token = jwt.sign(
-      { id: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
-    );
+  {
+    id: user._id,
+    role: user.role, // 👈 ADD THIS
+  },
+  process.env.JWT_SECRET,
+  { expiresIn: "1d" }
+);
+
 
     res.json({ token });
   } catch (err) {
