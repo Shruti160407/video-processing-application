@@ -63,7 +63,7 @@ The application is designed with a scalable architecture, supports multiple user
 ### Prerequisites
 - Node.js (LTS)
 - MongoDB (Local or Atlas)
-- FFmpeg installed on system
+- FFmpeg installed on system  
 
 ---
 
@@ -73,7 +73,9 @@ cd backend
 npm install
 npm run dev
 
+```
 ### Frontend Setup
+```
 cd frontend
 npm install
 npm run dev
